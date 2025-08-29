@@ -6,4 +6,4 @@ def drop_time(h, g = 9.8): #h = positional, g = keyword
     return t
 
 if __name__ == "__main__": #Runs from command line
-    print(drop_time(np.float(sys.argv[1]))) #index 0 = .py filename
+    print(drop_time(float(sys.argv[1]))) #index 0 = .py filename, cast arg as float (initially a string)
