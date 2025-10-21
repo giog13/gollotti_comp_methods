@@ -408,9 +408,6 @@ if __name__ == "__main__":
     
     parser.add_argument('--max_scatters', type = int, default = 100, help = 'The max number of frames in a simulation. Right now, it is set to 100. If you want to increase/decrease the number of frames/scatters, you can change this keyword argument. For example, if you want to increase the max scatters to 300, you can type this: python monte_carlo_gollotti.py SUN --max_scatters 300')
     
-    #Figure out how to implement visualization_scale argument into code
-    parser.add_argument('--visualization_scale', type = float, default = 1e11, help = 'If you are simulating the Sun, the distance between photon scatters is very small; so small that you cannot see the change with your eyes. In reality, photons take thousands to millions of years to leave the Sun. In order to see the photons scattering on a quick timescale, you can change the visualization scale. Right now, it is set to visualization_scale = 1e11. if you want to change the timescale to something different (for example: 1e12, type this in your terminal: python monte_carlo_gollotti.py SUN --visualization_scale 1e12')
-    
     parser.add_argument('--time_delay', type = int, default = 200, help = 'The time delay determines the time between each consecutive frame in the gif. Right now, the time delay is set to 200 milliseconds. If you want to slow down/speed up the time between each frame in the gif, you can change it in the terminal. For example, if you want the time delay to be 300 milliseconds instead, you can type something like this: python monte_carlo_gollotti.py SUN --time_delay 300')
     
     #Makes new variables into arguments for parser
@@ -436,7 +433,12 @@ if __name__ == "__main__":
 
         ax.axvline(0, color='blue', linestyle='--', linewidth=2, label='Slab Boundary')
         ax.axvline(slab_width.value, color='blue', linestyle='--', linewidth=2)
+        
+        ax.axhline(0.0, color='blue', linestyle='--', linewidth=2)
+        ax.axhline(slab_width.value, color='blue', linestyle='--', linewidth=2)
+        
         ax.axvspan(0, slab_width.value, color='blue', alpha=0.1, label='Slab Region')
+        ax.axhspan(0, slab_width.value, color='blue', alpha=0.1)
 
 
         # Add text box for stats (assisted by Claude.ai) 
@@ -476,14 +478,14 @@ if __name__ == "__main__":
         z = np.outer(np.ones(np.size(theta)), np.cos(phi))  * (const.R_sun).to(u.m)
 
         #Plotting sphere
-        ax.plot_surface(x, y, z, color = 'orangered', alpha = 0.6, edgecolor = 'none')
+        ax.plot_surface(x, y, z, color = 'orangered', alpha = 0.4, edgecolor = 'none')
 
         #Adding wireframe
-        ax.plot_wireframe(x, y, z, color = 'yellow', alpha = 0.2, linewidth = 0.5)
+        ax.plot_wireframe(x, y, z, color = 'yellow', alpha = 0.1, linewidth = 0.5)
 
         #Plotting the scatter points
         solar_line, = ax.plot3D([], [], [], color = 'black', linewidth=1.5, label='Photon Path')
-        solar_scat_point, = ax.plot3D([], [], [], 'o', color = 'deeppink', markersize=6, label='Scattering Event')
+        solar_scat_point, = ax.plot3D([], [], [], 'o', color = 'blue', markersize=6, label='Scattering Event')
         solar_current_point, = ax.plot3D([], [], [], 'o', color = 'mediumspringgreen', markersize=8, label='Current Position')
 
         #Stats text box (taking from Claude.ai)
