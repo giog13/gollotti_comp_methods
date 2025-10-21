@@ -27,7 +27,7 @@ start_x = slab_width.value / 2 #Center of slab
 start_y = slab_width.value / 2
 start_angle = 0.0
 
-max_scatters = 30 #Limit for number of frames in the simulation
+max_scatters = 50 #Limit for number of frames in the simulation
 time_delay = 500 #Time delay between frames in animation (milliseconds)
 
 #Initalizing simulation data globally
@@ -165,12 +165,13 @@ def update_animation(frame): #Code debugged by Claude.ai
             line (object) = Set of data representing the distances between each scattering event
             scat_point (object) = Set of data points corresponding to each scattering location (pink in the gif)
             current_point (object) = Set of data points corresponding to the photon's current position (green in the gif)
+            stats_text (object) = Text box with information about the time elapsed and total distance traveled
         
     """    
     global x_positions, y_positions, total_dist, sim_exit #Variables defined outside this function (initializers)
     
     if sim_exit == True: #Ends the whole function/animation
-        return line, scat_point, current_point
+        return line, scat_point, current_point, stats_text
     
     #Run one scatter event
     x_positions, y_positions, total_dist, time, sim_exit = simulate_one_scatter(x_positions, y_positions, total_dist)
@@ -205,7 +206,7 @@ solar_start_y = 0.0
 solar_start_z = 0.0
 start_angle = 0.0
 
-solar_max_scatters = 100 #Limit for number of frames in the simulation
+solar_max_scatters = 200 #Limit for number of frames in the simulation
 solar_time_delay = 200 #Time delay between frames in animation (milliseconds)
 
 #Initalizing simulation data globally
@@ -224,10 +225,16 @@ def solar_mean_free_path(radius, cross_section = cross_section_T):
         photon traveled between the scatter and current point.
         
         Parameters:
+            radius (float) = Distance from the center of the sun (meters)
+            cross_section_T (float) = Thompson's cross-section (cm^2)
         
         Variables:
+            n_e (float) = Electron density at a certain distance away from the center of the Sun (cm^-3)
+            L (float) = Mean free path that's dependent on the electron density (cm)
+            vis_scale (float) = Visualization scale that allows users to see photons scatter inside the Sun (unitless)
         
         Returns:
+            distance (float) = Distance between two points (dependent on L and the visualization scale)
         
     """
     
@@ -280,6 +287,8 @@ def simulate_solar_scatter(x_positions, y_positions, z_positions, total_dist): #
     starting_y = y_positions[-1]
     starting_z = z_positions[-1]
     
+    exit = False
+    
     #Current radius
     current_radius = np.sqrt(np.square(starting_x) + np.square(starting_y) + np.square(starting_z))
 
@@ -299,21 +308,20 @@ def simulate_solar_scatter(x_positions, y_positions, z_positions, total_dist): #
     current_x = starting_x + delta_x 
     current_y = starting_y + delta_y
     current_z = starting_y + delta_z
-
-    #Append new positions to arrays
-    x_positions.append(current_x)
-    y_positions.append(current_y)
-    z_positions.append(current_z)
-
+    
     #Determining the total distance
     total_dist += distance #Total distance traveled
     time = (total_dist * u.m) / const.c #Total time elapsed  (t = total_dist / speed of light)
-
-    exit = False
     
     #Stopping loop once photon "leaves" the Sun
     if (current_radius >= (0.9 * const.R_sun).to(u.m).value): #Density drops quickly and photon longer scatters at this point
         exit = True
+
+    if exit == False:
+        #Append new positions to arrays
+        x_positions.append(current_x)
+        y_positions.append(current_y)
+        z_positions.append(current_z)
 
     #Checking whether the photon traveled back to the center of the slab
     if (current_x == solar_start_x) and (current_y == solar_start_y) and (current_z == solar_start_z): #Restarts the whole method
@@ -342,7 +350,7 @@ def solar_init(): #Updated with Claude.ai
     solar_current_point.set_data(np.array([]), np.array([]))
     solar_current_point.set_3d_properties(np.array([]))
     
-    return solar_line, solar_scat_point, solar_current_point, stats_text
+    return solar_line, solar_scat_point, solar_current_point, solar_stats_text
 
 def update_solar_animation(frame): #Code debugged by Claude.ai
     """ 
@@ -354,8 +362,9 @@ def update_solar_animation(frame): #Code debugged by Claude.ai
             
         Returns:
             solar_line (object) = Set of data representing the distances between each scattering event
-            solar_scat_point (object) = Set of data points corresponding to each scattering location (pink in the gif)
+            solar_scat_point (object) = Set of data points corresponding to each scattering location (blue in the gif)
             solar_current_point (object) = Set of data points corresponding to the photon's current position (green in the gif)
+            solar_stats_text (object) = Text box with information about the current radius, time elapsed, and total distance
         
     """   
     #Variables defined outside this function (initializers)
@@ -363,7 +372,7 @@ def update_solar_animation(frame): #Code debugged by Claude.ai
     global solar_total_dist, solar_sim_exit, solar_time
     
     if solar_sim_exit == True: #Ends the whole function/animation
-        return solar_line, solar_scat_point, solar_current_point, stats_text
+        return solar_line, solar_scat_point, solar_current_point, solar_stats_text
     
     #Run one scatter event
     solar_x_positions, solar_y_positions, solar_z_positions, solar_total_dist, radius, solar_time, solar_sim_exit = simulate_solar_scatter(
@@ -384,14 +393,14 @@ def update_solar_animation(frame): #Code debugged by Claude.ai
     solar_current_point.set_3d_properties(np.array(solar_z_positions[-1]))
     
     #Updates title with every frame
-    ax.set_title(f'Solar Photon Scattering | L = {solar_mean_free_path(radius):.2f} m | Scatters: {len(solar_x_positions) - 1}', fontsize = 15)
+    ax.set_title(f'Solar Photon Scattering | L = {(solar_mean_free_path(radius) * u.m).to(u.km):.3e} | Scatters: {len(solar_x_positions) - 1}', fontsize = 15)
     
     #Update stats text box (total distance and time)
-    stats_text.set_text(f'Total Distance: {solar_total_dist:.3e} m\n'
+    solar_stats_text.set_text(f'Total Distance: {(solar_total_dist * u.m).to(u.km):.3e}\n'
                         f'Radius: {(radius * u.m).to(u.R_sun):.3e}\n'
                        f'Time Elapsed: {solar_time.to(u.microsecond):.3e}')
     
-    return solar_line, solar_scat_point, solar_current_point, stats_text
+    return solar_line, solar_scat_point, solar_current_point, solar_stats_text
     
 
 ## CALLING EITHER THE SLAB OR SUN FUNCTIONS FROM THE COMMAND LINE ##
@@ -401,22 +410,26 @@ if __name__ == "__main__":
     ##Configure animation##
 
     #Creating parser object
-    parser = argparse.ArgumentParser(description = 'This .py file allows you to simulate random photon scattering within two different objects: a well-defined SLAB or the SUN. Please type either SLAB or SUN in the command terminal. For example if you want to simulate the Sun, you can type this in your terminal: python monte_carlo_gollotti.py SUN. The module will then return a playable gif to your computer.') #Will allow users to change visualization scale and time delay at some point
+    parser = argparse.ArgumentParser(description = 'This .py file allows you to simulate random photon scattering within two different objects: a well-defined SLAB or the SUN. Please type either SLAB or SUN in the command terminal. For example if you want to simulate the Sun, you can type this in your terminal: python monte_carlo_gollotti.py SUN. The module will then return a playable gif to your computer.')
     
-    #Adding simulation type as a positional parser variable / visualization scale and time delay as keyword variables
+    #Adding simulation type as a positional parser variable / max_scatters and time_delay as keyword variables
     parser.add_argument('simulation_type', type = str, help = 'Type of simulation you want to run: SLAB or SUN')
     
-    parser.add_argument('--max_scatters', type = int, default = 100, help = 'The max number of frames in a simulation. Right now, it is set to 100. If you want to increase/decrease the number of frames/scatters, you can change this keyword argument. For example, if you want to increase the max scatters to 300, you can type this: python monte_carlo_gollotti.py SUN --max_scatters 300')
+    parser.add_argument('--max_scatters', type = int, default = 200, help = 'The max number of frames in a simulation. Right now, it is set to 50 for the SLAB and 200 for the SUN. If you want to increase/decrease the number of frames/scatters, you can change this keyword argument. For example, if you want to increase the max scatters to 300 for the SUN, you can type this: python monte_carlo_gollotti.py SUN --max_scatters 300') #Is there a way to make two different default values for the max_scatters?
     
-    parser.add_argument('--time_delay', type = int, default = 200, help = 'The time delay determines the time between each consecutive frame in the gif. Right now, the time delay is set to 200 milliseconds. If you want to slow down/speed up the time between each frame in the gif, you can change it in the terminal. For example, if you want the time delay to be 300 milliseconds instead, you can type something like this: python monte_carlo_gollotti.py SUN --time_delay 300')
+    parser.add_argument('--time_delay', type = int, default = 200, help = 'The time delay determines the time between each consecutive frame in the gif. Right now, the time delay is set to 500 milliseconds for the SLAB and 200 ms for the SUN. If you want to slow down/speed up the time between each frame in the gif, you can change it in the terminal. For example, if you want the time delay to be 300 milliseconds instead, you can type something like this: python monte_carlo_gollotti.py SUN --time_delay 300')
     
     #Makes new variables into arguments for parser
     args = parser.parse_args()
     
     if (args.simulation_type == 'SLAB') or (args.simulation_type == 'slab'):
         
+        args.max_scatters = 50
+        
+        args.time_delay = 500
+        
         #Animation set-up
-        fig, ax = plt.subplots(figsize=(12, 10))
+        fig, ax = plt.subplots(figsize=(10, 8))
         line, = ax.plot([], [], color = 'black', linewidth=1.5, label='Photon Path')
         scat_point, = ax.plot([], [], 'o', color = 'deeppink', markersize=6, label='Scattering Event')
         current_point, = ax.plot([], [], 'o', color = 'mediumspringgreen', markersize=8, label='Current Position')
@@ -442,7 +455,7 @@ if __name__ == "__main__":
 
 
         # Add text box for stats (assisted by Claude.ai) 
-        stats_text = ax.text(0.02, 0.98, '', transform=ax.transAxes, 
+        stats_text = ax.text(0.02, 0.90, '', transform=ax.transAxes, 
                              fontsize=12, verticalalignment='bottom',
                              bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
 
@@ -454,7 +467,7 @@ if __name__ == "__main__":
             update_animation,
             frames = range(args.max_scatters),
             init_func = init,
-            blit = True,
+            blit = False,
             interval = args.time_delay,
             repeat = False
         )
@@ -489,7 +502,7 @@ if __name__ == "__main__":
         solar_current_point, = ax.plot3D([], [], [], 'o', color = 'mediumspringgreen', markersize=8, label='Current Position')
 
         #Stats text box (taking from Claude.ai)
-        stats_text = ax.text2D(0.02, 0.95, '', transform=ax.transAxes, fontsize=10,
+        solar_stats_text = ax.text2D(0.02, 0.95, '', transform=ax.transAxes, fontsize=10,
                                verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
         #Setting labels and title
