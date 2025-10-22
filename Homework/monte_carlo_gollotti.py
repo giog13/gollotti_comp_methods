@@ -27,9 +27,6 @@ start_x = slab_width.value / 2 #Center of slab
 start_y = slab_width.value / 2
 start_angle = 0.0
 
-max_scatters = 50 #Limit for number of frames in the simulation
-time_delay = 500 #Time delay between frames in animation (milliseconds)
-
 #Initalizing simulation data globally
 x_positions = [start_x] #Array of all the photon's positions
 y_positions = [start_y]
@@ -191,7 +188,7 @@ def update_animation(frame): #Code debugged by Claude.ai
     
     #Update stats text box (total distance and time)
     stats_text.set_text(f'Total Distance: {total_dist:.3f} m\n'
-                       f'Time Elapsed: {time.to(u.microsecond):.3f}')
+                       f'Time Elapsed: {time:.3e}')
     
     return line, scat_point, current_point, stats_text
 
@@ -395,10 +392,12 @@ def update_solar_animation(frame): #Code debugged by Claude.ai
     #Updates title with every frame
     ax.set_title(f'Solar Photon Scattering | L = {(solar_mean_free_path(radius) * u.m).to(u.km):.3e} | Scatters: {len(solar_x_positions) - 1}', fontsize = 15)
     
+    vis_scale = 1e11 #Applied to the distance, so it should also be applied to the overall time
+    
     #Update stats text box (total distance and time)
     solar_stats_text.set_text(f'Total Distance: {(solar_total_dist * u.m).to(u.km):.3e}\n'
                         f'Radius: {(radius * u.m).to(u.R_sun):.3e}\n'
-                       f'Time Elapsed: {solar_time.to(u.microsecond):.3e}')
+                       f'Time Elapsed: {(solar_time * vis_scale).to(u.yr):.3e}')
     
     return solar_line, solar_scat_point, solar_current_point, solar_stats_text
     
@@ -533,4 +532,4 @@ if __name__ == "__main__":
             repeat = False
         )
 
-        plt.show() #I wonder if there's a way for the user to actively change the orientation of the animation 
+        plt.show()
