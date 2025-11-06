@@ -89,6 +89,49 @@ def solving_R4(x_0, y_0, vx_0, vy_0, t_start, t_end, h): #Debugged with Claude.a
         
     return t_range, x_array, y_array, vx_array, vy_array
 
+def plot_static_orbit(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0 = 1.0, L = 2.0):
+    
+    t, x, y, vx, vy = solving_R4(x_0, y_0, vx_0, vy_0, t_start, t_end, h)
+    
+    fig = go.Figure()
+    
+    # Add orbit trajectory
+    fig.add_trace(go.Scatter(
+        x=x,
+        y=y,
+        mode='lines',
+        line=dict(color='mediumspringgreen', width=2),
+        name='Orbit'
+    ))
+    
+    # Add starting point
+    fig.add_trace(go.Scatter(
+        x=[x[0]],
+        y=[y[0]],
+        mode='markers',
+        marker=dict(size=10, color='blue'),
+        name='Starting Position'
+    ))
+    
+    # Add ending point
+    fig.add_trace(go.Scatter(
+        x=[x[-1]],
+        y=[y[-1]],
+        mode='markers',
+        marker=dict(size=10, color='deeppink'),
+        name='Ending Position'
+    ))
+    
+    fig.update_layout(
+        title='Static Ball Bearing Orbiting Around A Rod in Space',
+        xaxis=dict(title='x', scaleanchor='y', scaleratio=1),
+        yaxis=dict(title='y'),
+        width=800,
+        height=800
+    )
+    
+    fig.show()
+
 def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0 = 1.0, L = 2.0):
     
     """
@@ -119,14 +162,15 @@ def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0
     fig = go.Figure()
     
     #Axis limits
-    x_range = [min(x.min(), -1) - L, max(x.max(), 1) + L]
-    y_range = [min(y.min(), -1) - L, max(y.max(), 1) + L]
+    x_range = [x.min() - L, x.max() + L]
+    y_range = [y.min() - L, x.max() + L]
     
     # Downsample for animation (every nth point) - taken from Claude.ai
-    skip = 5
+    skip = 3
     t_anim = t[::skip]
     x_anim = x[::skip]
     y_anim = y[::skip]
+    
     
     #Adding the rod (vertical line at origin)
     fig.add_trace(go.Scatter(
@@ -137,6 +181,7 @@ def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0
         name = 'Rod',
         showlegend = True
     ))
+    
     
     #Adding trajectory path
     fig.add_trace(go.Scatter(
@@ -163,7 +208,7 @@ def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0
         x = [x_anim[0]],
         y = [y_anim[0]],
         mode = 'markers',
-        marker = dict(size = 15, color = 'black'),
+        marker = dict(size = 10, color = 'black'),
         name = 'Ball Bearing',
         showlegend = True
     ))
@@ -197,7 +242,7 @@ def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0
     
     # Add animation controls
     fig.update_layout(
-        title='Ball Bearing Orbiting Around Rod',
+        title='Animated Ball Bearing Orbiting Around A Rod in Space',
         xaxis=dict(range = x_range, title = 'x', scaleanchor = 'y', scaleratio = 1),
         yaxis=dict(range = y_range, title = 'y'),
         width=800,
@@ -264,13 +309,18 @@ def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0
 if __name__ == '__main__': #make argparse arguments
     
     #Creating parser object
-    parser = argparse.ArgumentParser(description = 'This .py file returns the plotly animation for a ball bearing orbiting around a rod of length L = 2.0 m if they were floating in space as "space garbage." Unlike the Earth orbiting the Sun, the orbit of the ball bearing around the rod will not be circular. Instead, it will precess around the rod, since the rod has a much weaker gravitational force on the ball bearing than the Sun on the Earth. In order to get an animation, you need to type this in your terminal: python ODE_gollotti.py . You are welcome to change the start time (start_time), end time (end_time), and time step (time_step).If you want to make a change, use this format in your terminal: python ODE_gollotti.py --start_time 0.0 --end_time 10.0 --time_step 0.05.')
-    
-    parser.add_argument('--start_time', type = float, default = 0.0, help = 'Start time (seconds) - default = 0.0s. In order to make the change, type this in your terminal: python ODE_gollotti.py --start_time [number goes here]')
-    parser.add_argument('--end_time', type = float, default = 10.0, help = 'End time (seconds) - default = 10.0 s. In order to make the change, type this in your terminal: python ODE_gollotti.py --end_time [number goes here]')
-    parser.add_argument('--time_step', type = float, default = 0.05, help = 'Time step for Runga-Kutta method (seconds) - default = 0.05. In order to make the change, type this in your terminal: python ODE_gollotti.py --time_step [number goes here].')
+    parser = argparse.ArgumentParser(description = 'This .py file returns a plot or animation for a ball bearing orbiting around a rod of length L = 2.0 m if they were floating in space as "space garbage." Unlike the Earth orbiting the Sun, the orbit of the ball bearing around the rod will not be circular. Instead, it will precess around the rod, since the rod has a much weaker gravitational force on the ball bearing than the Sun on the Earth. In order to get a static plot, you need to type this in your terminal: python ODE_gollotti.py STATIC. For an animation type: python ODE_gollotti.py ANIMATE. You are welcome to change the start time (start_time), end time (end_time), and time step (time_step).If you want to make a change, use this format in your terminal: python ODE_gollotti.py [plot type] --start_time 0.0 --end_time 10.0 --time_step 0.05.')
+
+    parser.add_argument('plot_type', type = str, help = 'Type of plot you want to generate: STATIC or ANIMATE')
+    parser.add_argument('--start_time', type = float, default = 0.0, help = 'Start time (seconds) - default = 0.0s. In order to make the change, type this in your terminal: python ODE_gollotti.py [plot type] --start_time [number goes here]')
+    parser.add_argument('--end_time', type = float, default = 10.0, help = 'End time (seconds) - default = 10.0 s. In order to make the change, type this in your terminal: python ODE_gollotti.py [plot_type] --end_time [number goes here]')
+    parser.add_argument('--time_step', type = float, default = 0.05, help = 'Time step for Runga-Kutta method (seconds) - default = 0.05. In order to make the change, type this in your terminal: python ODE_gollotti.py [plot_type] --time_step [number goes here].')
     
     #Makes new variables into arguments for parser
     args = parser.parse_args()
+
+    if args.plot_type == 'STATIC':
+        plot_static_orbit(t_start = args.start_time, t_end = args.end_time, h = args.time_step)
+    if args.plot_type == 'ANIMATE':
+        plot_rod_animation(t_start = args.start_time, t_end = args.end_time, h = args.time_step)
     
-    plot_rod_animation(t_start = args.start_time, t_end = args.end_time, h = args.time_step)
