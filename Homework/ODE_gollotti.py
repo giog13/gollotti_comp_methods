@@ -6,12 +6,12 @@ from plotly.subplots import make_subplots
 import argparse
 
 #4th-order Runga-Kunta method
-def runga_kutta_4_order(f, state, h): #Debugged with Claude.ai
+def runga_kutta_4_order(f, state, h, t): #Debugged with Claude.ai
     """ Single step of RK4 method """ #State = dx_dt, dy_dt, dx_2_dt, dy_2_dt
-    k_1 = h * f(state)
-    k_2 = h * f(state + k_1/2)
-    k_3 = h * f(state + k_2/2)
-    k_4 = h * f(state + k_3)
+    k_1 = h * f(state, t)
+    k_2 = h * f(state + (0.5 * k_1), t + (0.5 * h))
+    k_3 = h * f(state + (0.5 * k_2), t + (0.5 * h))
+    k_4 = h * f(state + k_3, t + h)
     
     return state + (h/6) * (k_1 + (2 * k_2) + (2 * k_3) + k_4) #4th order Runga-Kutta algorithm
 
@@ -80,7 +80,7 @@ def solving_R4(x_0, y_0, vx_0, vy_0, t_start, t_end, h): #Debugged with Claude.a
     for i in range(len(t_range) - 1):
         state = np.array([x_array[i], y_array[i], vx_array[i], vy_array[i]]) #(x, y, vx, vy)
         
-        new_state = runga_kutta_4_order(equation_motion, state, h) #Updates state coordinates based on the Runga-Kutta method
+        new_state = runga_kutta_4_order(equation_motion, state, h, t = t_range[i]) #Updates state coordinates based on Runga-Kutta method
         
         x_array[i + 1] = new_state[0] #New x_val
         y_array[i + 1] = new_state[1] #New y_val
@@ -91,6 +91,27 @@ def solving_R4(x_0, y_0, vx_0, vy_0, t_start, t_end, h): #Debugged with Claude.a
 
 def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0 = 1.0, L = 2.0):
     
+    """
+        This function returns a Plotly animation of the ball bearing precessing around a rod floating in space. 
+        
+        Parameters:
+            t_start (float): Animation start time (seconds)
+            t_end (float): Animation end time (seconds)
+            h (int) = Time step (seconds)
+            x_0 (float) = Starting x-coordinate (default = 1.0 m)
+            y_0 (float) = Starting y-coordinate (default = 0.0 m)
+            vx_0 (float) = Starting velocity in the x-direction (default = 0.0 m/s)
+            vy_0 (float) = Starting velocity in the y-direction (default = 1.0 m/s)
+            
+        Variables:
+            t (np.array) = Range of time values, where the increments are dependent on h
+            x (np.array) = List of x-coordinates
+            y (np.array) = List of y-coordinates
+            vx (np.array) = List of velocities in the x-direction
+            vy (np.array) = List of velocities in the y-direction
+            
+    """
+    
     t, x, y, vx, vy = solving_R4(x_0, y_0, vx_0, vy_0, t_start, t_end, h)
     
     #Creating animation figure (help from Claude.ai)
@@ -98,8 +119,8 @@ def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0
     fig = go.Figure()
     
     #Axis limits
-    x_range = [min(x.min(), -1) - 1, max(x.max(), 1) + 1]
-    y_range = [min(y.min(), -1) - (L/2), max(y.max(), 1) + 1]
+    x_range = [min(x.min(), -1) - L, max(x.max(), 1) + L]
+    y_range = [min(y.min(), -1) - L, max(y.max(), 1) + L]
     
     # Downsample for animation (every nth point) - taken from Claude.ai
     skip = 5
@@ -107,7 +128,7 @@ def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0
     x_anim = x[::skip]
     y_anim = y[::skip]
     
-    #Adding the rod (horizontal line at origin)
+    #Adding the rod (vertical line at origin)
     fig.add_trace(go.Scatter(
         x = [0, 0],
         y = [y_range[0], y_range[1]],
@@ -243,10 +264,10 @@ def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0
 if __name__ == '__main__': #make argparse arguments
     
     #Creating parser object
-    parser = argparse.ArgumentParser(description = 'This .py file returns the plotly animation for a ball bearing orbiting around a rod of length L = 2.0 m if they were floating in space as "space garbage." Unlike the Earth orbiting the Sun, the orbit of the ball bearing around the rod will not be circular. Instead, it will precess around the rod, since the rod has a much weaker gravitational force on the ball bearing than the Sun on the Earth. In order to get an animation, you need to type this in your terminal: python ODE_gollotti.py . You are welcome to change the start time (start_time), end time (end_time), and time step (time_step).If you want to make a change, use this format in your terminal: python ODE_gollotti.py --start_time 0.0 --end_time 100.0 --time_step 0.05.')
+    parser = argparse.ArgumentParser(description = 'This .py file returns the plotly animation for a ball bearing orbiting around a rod of length L = 2.0 m if they were floating in space as "space garbage." Unlike the Earth orbiting the Sun, the orbit of the ball bearing around the rod will not be circular. Instead, it will precess around the rod, since the rod has a much weaker gravitational force on the ball bearing than the Sun on the Earth. In order to get an animation, you need to type this in your terminal: python ODE_gollotti.py . You are welcome to change the start time (start_time), end time (end_time), and time step (time_step).If you want to make a change, use this format in your terminal: python ODE_gollotti.py --start_time 0.0 --end_time 10.0 --time_step 0.05.')
     
     parser.add_argument('--start_time', type = float, default = 0.0, help = 'Start time (seconds) - default = 0.0s. In order to make the change, type this in your terminal: python ODE_gollotti.py --start_time [number goes here]')
-    parser.add_argument('--end_time', type = float, default = 100.0, help = 'End time (seconds) - default = 100.0 s. In order to make the change, type this in your terminal: python ODE_gollotti.py --end_time [number goes here]')
+    parser.add_argument('--end_time', type = float, default = 10.0, help = 'End time (seconds) - default = 10.0 s. In order to make the change, type this in your terminal: python ODE_gollotti.py --end_time [number goes here]')
     parser.add_argument('--time_step', type = float, default = 0.05, help = 'Time step for Runga-Kutta method (seconds) - default = 0.05. In order to make the change, type this in your terminal: python ODE_gollotti.py --time_step [number goes here].')
     
     #Makes new variables into arguments for parser
