@@ -13,7 +13,7 @@ def runga_kutta_4_order(f, state, h, t): #Debugged with Claude.ai
     k_3 = h * f(state + (0.5 * k_2), t + (0.5 * h))
     k_4 = h * f(state + k_3, t + h)
     
-    return state + (h/6) * (k_1 + (2 * k_2) + (2 * k_3) + k_4) #4th order Runga-Kutta algorithm
+    return state + (1/6) * (k_1 + (2 * k_2) + (2 * k_3) + k_4) #4th order Runga-Kutta algorithm
 
 #Derivatives for the equations of motion
 def equation_motion(state, G = 1.0, M = 10.0, L = 2.0):
@@ -48,8 +48,8 @@ def equation_motion(state, G = 1.0, M = 10.0, L = 2.0):
     dy_dt = v_y
 
     #Second-order differential (represent acceleration)
-    dx_2_dt = (-G * M) * (x / (np.square(r)) * np.sqrt(np.square(r) + ((1/4) * np.square(L))))
-    dy_2_dt = (-G * M) * (y / (np.square(r)) * np.sqrt(np.square(r) + ((1/4) * np.square(L))))
+    dx_2_dt = (-G * M) * (x / (np.square(r) * np.sqrt(np.square(r) + ((1/4) * np.square(L)))))
+    dy_2_dt = (-G * M) * (y / (np.square(r) * np.sqrt(np.square(r) + ((1/4) * np.square(L)))))
     
     if r < 1e-10: #Avoids the possibility of dividing by zero
         return np.array([dx_dt, dy_dt, 0.0, 0.0])
@@ -90,52 +90,86 @@ def solving_R4(x_0, y_0, vx_0, vy_0, t_start, t_end, h): #Debugged with Claude.a
     return t_range, x_array, y_array, vx_array, vy_array
 
 def plot_static_orbit(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0 = 1.0, L = 2.0):
+
+    """
+        This function returns a static plot of the ball bearing's orbit around the rod. 
+
+        Parameters:
+            t_start (float): Animation start time (seconds)
+            t_end (float): Animation end time (seconds)
+            h (int) = Time step (seconds)
+            x_0 (float) = Starting x-coordinate (default = 1.0 m)
+            y_0 (float) = Starting y-coordinate (default = 0.0 m)
+            vx_0 (float) = Starting velocity in the x-direction (default = 0.0 m/s)
+            vy_0 (float) = Starting velocity in the y-direction (default = 1.0 m/s)
+            
+        Variables:
+            t (np.array) = Range of time values, where the increments are dependent on h
+            x (np.array) = List of x-coordinates
+            y (np.array) = List of y-coordinates
+            vx (np.array) = List of velocities in the x-direction
+            vy (np.array) = List of velocities in the y-direction
+    """
     
     t, x, y, vx, vy = solving_R4(x_0, y_0, vx_0, vy_0, t_start, t_end, h)
     
     fig = go.Figure()
+
+    #Axis limits
+    x_range = [x.min() - (L/8), x.max() + (L/8)]
+    y_range = [y.min() - (L/8), x.max() + (L/8)]
+
+    #Adding rod (facing towards us, so it will look like a point)
+    fig.add_trace(go.Scatter(
+        x = [0],
+        y = [0],
+        mode = 'markers',
+        marker = dict(size = 10, color = 'gray'),
+        name = 'Rod'
+    ))
     
     # Add orbit trajectory
     fig.add_trace(go.Scatter(
-        x=x,
-        y=y,
-        mode='lines',
-        line=dict(color='mediumspringgreen', width=2),
-        name='Orbit'
+        x = x,
+        y = y,
+        mode = 'lines',
+        line = dict(color='orangered', width=2),
+        name = 'Orbit'
     ))
     
     # Add starting point
     fig.add_trace(go.Scatter(
-        x=[x[0]],
-        y=[y[0]],
-        mode='markers',
-        marker=dict(size=10, color='blue'),
-        name='Starting Position'
+        x = [x[0]],
+        y = [y[0]],
+        mode = 'markers',
+        marker = dict(size = 10, color = 'blue'),
+        name = 'Starting Position'
     ))
     
     # Add ending point
     fig.add_trace(go.Scatter(
-        x=[x[-1]],
-        y=[y[-1]],
-        mode='markers',
-        marker=dict(size=10, color='deeppink'),
-        name='Ending Position'
+        x = [x[-1]],
+        y = [y[-1]],
+        mode = 'markers',
+        marker = dict(size = 10, color = 'green'),
+        name = 'Ending Position'
     ))
     
     fig.update_layout(
-        title='Static Ball Bearing Orbiting Around A Rod in Space',
-        xaxis=dict(title='x', scaleanchor='y', scaleratio=1),
-        yaxis=dict(title='y'),
-        width=800,
-        height=800
+        title = 'Static Ball Bearing Orbiting Around A Rod in Space',
+        xaxis = dict(range = x_range, title = 'x', scaleanchor = 'y', scaleratio = 1),
+        yaxis = dict(range = y_range, title = 'y'),
+        width = 800,
+        height = 800
     )
     
     fig.show()
 
-def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0 = 1.0, L = 2.0):
-    
+def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0 = 1.0, L = 2.0): 
+    #This animation worked this morning, but now it's not working at all. Claude literally stopped working when I tried debugging for multiple hours last night. I don't know what's wrong with this method, and why the animation isn't working.
+
     """
-        This function returns a Plotly animation of the ball bearing precessing around a rod floating in space. 
+    This function returns a Plotly animation of the ball bearing precessing around a rod floating in space. 
         
         Parameters:
             t_start (float): Animation start time (seconds)
@@ -152,38 +186,34 @@ def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0
             y (np.array) = List of y-coordinates
             vx (np.array) = List of velocities in the x-direction
             vy (np.array) = List of velocities in the y-direction
-            
     """
+
+    
     
     t, x, y, vx, vy = solving_R4(x_0, y_0, vx_0, vy_0, t_start, t_end, h)
     
-    #Creating animation figure (help from Claude.ai)
-    
     fig = go.Figure()
     
-    #Axis limits
-    x_range = [x.min() - L, x.max() + L]
-    y_range = [y.min() - L, x.max() + L]
+    # Axis limits
+    x_range = [x.min() - (L/2), x.max() + (L/2)]
+    y_range = [y.min() - (L/2), y.max() + (L/2)]
     
-    # Downsample for animation (every nth point) - taken from Claude.ai
-    skip = 3
+    # Downsample for animation
+    skip = 5
     t_anim = t[::skip]
     x_anim = x[::skip]
     y_anim = y[::skip]
     
-    
-    #Adding the rod (vertical line at origin)
+    # Adding the rod
     fig.add_trace(go.Scatter(
-        x = [0, 0],
-        y = [y_range[0], y_range[1]],
-        mode = 'lines',
-        line = dict(color = 'gray', width = 8),
-        name = 'Rod',
-        showlegend = True
+        x = [0],
+        y = [0],
+        mode = 'markers',
+        marker = dict(size = 10, color = 'gray'),
+        name = 'Rod'
     ))
     
-    
-    #Adding trajectory path
+    # Adding trajectory path
     fig.add_trace(go.Scatter(
         x = x,
         y = y,
@@ -193,7 +223,7 @@ def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0
         showlegend = True
     ))
     
-    # Add trail (will show past positions)
+    # Add trail
     fig.add_trace(go.Scatter(
         x = [x_anim[0]],
         y = [y_anim[0]],
@@ -203,7 +233,7 @@ def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0
         showlegend=True
     ))
     
-    # Add ball bearing (moving point)
+    # Add ball bearing
     fig.add_trace(go.Scatter(
         x = [x_anim[0]],
         y = [y_anim[0]],
@@ -213,38 +243,53 @@ def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0
         showlegend = True
     ))
     
-     # Create frames for animation
+    # Create frames for animation
     frames = []
-    trail_length = 50  # Number of points to show in trail
+    trail_length = 50
     
     for i in range(len(x_anim)):
-        # Trail: show last trail_length points
         trail_start = max(0, i - trail_length)
         trail_x = x_anim[trail_start:i+1]
         trail_y = y_anim[trail_start:i+1]
         
         frame = go.Frame(
             data=[
-                # Rod (unchanged)
-                go.Scatter(x=[0, 0], y=[y_range[0], y_range[1]]),
-                # Full trajectory (unchanged)
-                go.Scatter(x=x, y=y),
-                # Trail
-                go.Scatter(x=trail_x, y=trail_y),
-                # Ball bearing
-                go.Scatter(x=[x_anim[i]], y=[y_anim[i]])
+                go.Scatter(
+                    x=[0], 
+                    y=[0],
+                    mode='markers',
+                    marker=dict(size=10, color='gray')
+                ),
+                go.Scatter(
+                    x=x, 
+                    y=y,
+                    mode='lines',
+                    line=dict(color='mediumspringgreen', width=2)
+                ),
+                go.Scatter(
+                    x=trail_x, 
+                    y=trail_y,
+                    mode='lines',
+                    line=dict(color='deeppink', width=2)
+                ),
+                go.Scatter(
+                    x=[x_anim[i]], 
+                    y=[y_anim[i]],
+                    mode='markers',
+                    marker=dict(size=10, color='black')
+                )
             ],
-            name=f'frame{i}'
+            name=str(i)
         )
         frames.append(frame)
     
     fig.frames = frames
     
-    # Add animation controls
+    # Update layout
     fig.update_layout(
         title='Animated Ball Bearing Orbiting Around A Rod in Space',
-        xaxis=dict(range = x_range, title = 'x', scaleanchor = 'y', scaleratio = 1),
-        yaxis=dict(range = y_range, title = 'y'),
+        xaxis=dict(range=x_range, title='x', scaleanchor='y', scaleratio=1),
+        yaxis=dict(range=y_range, title='y'),
         width=800,
         height=800,
         updatemenus=[{
@@ -291,11 +336,14 @@ def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0
             'x': 0.1,
             'steps': [
                 {
-                    'args': [[f'frame{i}'], {
-                        'frame': {'duration': 0, 'redraw': True},
-                        'mode': 'immediate',
-                        'transition': {'duration': 0}
-                    }],
+                    'args': [
+                        [str(i)],
+                        {
+                            'frame': {'duration': 0, 'redraw': True},
+                            'mode': 'immediate',
+                            'transition': {'duration': 0}
+                        }
+                    ],
                     'method': 'animate',
                     'label': f'{t_anim[i]:.1f}'
                 }
@@ -314,7 +362,7 @@ if __name__ == '__main__': #make argparse arguments
     parser.add_argument('plot_type', type = str, help = 'Type of plot you want to generate: STATIC or ANIMATE')
     parser.add_argument('--start_time', type = float, default = 0.0, help = 'Start time (seconds) - default = 0.0s. In order to make the change, type this in your terminal: python ODE_gollotti.py [plot type] --start_time [number goes here]')
     parser.add_argument('--end_time', type = float, default = 10.0, help = 'End time (seconds) - default = 10.0 s. In order to make the change, type this in your terminal: python ODE_gollotti.py [plot_type] --end_time [number goes here]')
-    parser.add_argument('--time_step', type = float, default = 0.05, help = 'Time step for Runga-Kutta method (seconds) - default = 0.05. In order to make the change, type this in your terminal: python ODE_gollotti.py [plot_type] --time_step [number goes here].')
+    parser.add_argument('--time_step', type = float, default = 0.001, help = 'Time step for Runga-Kutta method (seconds) - default = 0.05. In order to make the change, type this in your terminal: python ODE_gollotti.py [plot_type] --time_step [number goes here].')
     
     #Makes new variables into arguments for parser
     args = parser.parse_args()
