@@ -294,61 +294,11 @@ def plot_rod_animation(t_start, t_end, h, x_0 = 1.0, y_0 = 0.0, vx_0 = 0.0, vy_0
         height=800,
         updatemenus=[{
             'type': 'buttons',
-            'showactive': True,
-            'buttons': [
-                {
-                    'label': 'Play',
-                    'method': 'animate',
-                    'args': [None, {
-                        'frame': {'duration': 50, 'redraw': True},
-                        'fromcurrent': True,
-                        'mode': 'immediate',
-                        'transition': {'duration': 0}
-                    }]
-                },
-                {
-                    'label': 'Pause',
-                    'method': 'animate',
-                    'args': [[None], {
-                        'frame': {'duration': 0, 'redraw': False},
-                        'mode': 'immediate',
-                        'transition': {'duration': 0}
-                    }]
-                }
-            ],
-            'x': 0.1,
-            'y': 0,
-            'xanchor': 'right',
-            'yanchor': 'top'
-        }],
-        sliders=[{
-            'active': 0,
-            'yanchor': 'top',
-            'y': 0,
-            'xanchor': 'left',
-            'currentvalue': {
-                'prefix': 'Time: ',
-                'visible': True,
-                'xanchor': 'right'
-            },
-            'pad': {'b': 10, 't': 50},
-            'len': 0.9,
-            'x': 0.1,
-            'steps': [
-                {
-                    'args': [
-                        [str(i)],
-                        {
-                            'frame': {'duration': 0, 'redraw': True},
-                            'mode': 'immediate',
-                            'transition': {'duration': 0}
-                        }
-                    ],
-                    'method': 'animate',
-                    'label': f'{t_anim[i]:.1f}'
-                }
-                for i in range(len(x_anim))
-            ]
+            'buttons': [{
+                'label': 'Play',
+                'method': 'animate',
+                'args': [None, {'frame': {'duration': 50}, 'fromcurrent': True}]
+            }]
         }]
     )
     
