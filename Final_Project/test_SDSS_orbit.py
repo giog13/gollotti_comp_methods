@@ -1,11 +1,16 @@
 #Importing packages (not uploading this to Github until I understand how Claude.ai debugged my code)
 import pandas as pd
 import numpy as np
+import random
 import matplotlib.pyplot as plt
 
 from astropy.coordinates import SkyCoord, Galactic, Galactocentric
+from astropy.coordinates import Angle
 import astropy.units as u
 import astropy.constants as const
+
+import matplotlib.animation as animation
+from matplotlib.animation import FuncAnimation
 
 #Plummer potential model (works for GCs and dwarf galaxies, NOT spirals)
 def plummer_potential(r, b = 15.0, M = 1.29e12):  #Claude.ai suggests to use 15 kpc instead
@@ -125,6 +130,7 @@ def leapfrog_method(pos, vel, dt):
     
     return new_pos, new_vel
 
+
 #Simulating the orbit
 def simulate_orbit(r_0, v_rad, pm, parallax, dt, t_max):
     """
@@ -225,8 +231,7 @@ def plot_simulation(r0, v_rad, v_tan, p, dt = 0.1, t_max = 500):
             
         Returns:
             Plot with all the circular stellar orbits around the center of the Milky Way
-            
-    """
+        """
 
     fig = plt.figure(figsize = (8, 6))
 
@@ -261,6 +266,7 @@ def plot_simulation(r0, v_rad, v_tan, p, dt = 0.1, t_max = 500):
     
     plt.tight_layout()
     plt.show()
+
 
 #Converting to Galactocentric coordinates
 def galactic_coords(ra, dec, dist, pm_ra, pm_dec, rv): #Suggested by Claude.ai
@@ -375,89 +381,310 @@ def simulate_galactic_orbit(r_0, v_0, dt, t_max):
     
     return times, positions, velocities
 
-def plot_galactic_orbit(ra, dec, dist, pm_ra, pm_dec, rv, dt = 0.1, t_max = 1000):
+def plot_galactic_orbit(ra, dec, dist, pm_ra, pm_dec, rv, dt = 0.1, t_max = 1000, disk_radius = 15.0, disk_height = 0.3):
 
     """
         This function converts observational coordinates to Galactocentric and also plots the orbits in both 2D and 3D.
 
         Parameters:
-            ra (float) = RA (degrees)
-            dec (float) = Declination (degrees)
-            dist (float) = Distance from Earth (kpc)
-            pm_ra (float) = Proper motion in RA direction (mas/yr)
-            pm_dec (float) = Proper motion in Dec direction (mas/yr)
-            rv (float) = Radial velocity (km/s)
+            ra (list) = List of RAs (degrees)
+            dec (list) = List of declinations (degrees)
+            dist (list) = List of stellar distances from Earth (kpc)
+            pm_ra (list) = List of proper motions in RA direction (mas/yr)
+            pm_dec (list) = List of proper motions in Dec direction (mas/yr)
+            rv (list) = List of radial velocities (km/s)
             dt (float) = Time step (Myr)
             t_max (float) = Total simulation time (Myr)
+            disk_radius (float) = Radius of the Milky Way that contains most of the stellar population (kpc)
+            disk_height (float) = Height of the Milky Way's thin disk (kpc)
         
     """
 
-    print("="*60) #Print functions suggested by Claude.ai for debugging purposes
-    print("CONVERTING TO GALACTOCENTRIC COORDINATES")
-    print("="*60)
-    print(f"Input observational data:")
-    print(f"  RA: {ra:.6f} deg")
-    print(f"  Dec: {dec:.6f} deg")
-    print(f"  Distance from Earth: {dist:.6f} kpc")
-    print(f"  PM_RA*cos(dec): {pm_ra:.6f} mas/yr")
-    print(f"  PM_Dec: {pm_dec:.6f} mas/yr")
-    print(f"  Radial velocity: {rv:.6f} km/s\n")
-
-    #Convert to Galactocentric coordinates
-    r_0, v_0 = galactic_coords(ra, dec, dist, pm_ra, pm_dec, rv)
-
-    #Simulate the orbit
-    print("="*60)
-    print("SIMULATING ORBIT")
-    print("="*60)
-
-    times, positions, velocities = simulate_galactic_orbit(r_0, v_0, dt, t_max)
-
-    #Determine orbital statistics
-    r_vals = np.sqrt(np.sum(np.square(positions), axis = 1))
-
-    print("="*60)
-    print("ORBITAL STATISTICS")
-    print("="*60)
-    print(f"Initial distance: {r_vals[0]:.3f} kpc")
-    print(f"Min distance (periapsis): {r_vals.min():.3f} kpc")
-    print(f"Max distance (apoapsis): {r_vals.max():.3f} kpc")
-    print(f"Final distance: {r_vals[-1]:.3f} kpc")
-    print(f"Eccentricity (approx): {(r_vals.max() - r_vals.min())/(r_vals.max() + r_vals.min()):.3f}\n")
-
-    #Creating 3D plots
+    #Plotting all the orbits on one plot
     fig = plt.figure(figsize = (14, 6))
-
-    rand_color = generate_random_rgb_color()
-
-    # 3D orbit
     ax1 = fig.add_subplot(121, projection='3d')
-    ax1.plot(positions[:, 0], positions[:, 1], positions[:, 2], 
-            color = rand_color, linewidth = 1.5, alpha = 0.7, label = 'Stellar Orbit', zorder = 3)
-    ax1.scatter(0, 0, 0, color = 'orangered', s = 100, label='MW Center', zorder = 1)
-    #ax1.scatter(positions[0, 0], positions[0, 1], positions[0, 2], 
-                #color='green', s=80, label='Start')
-    ax1.set_xlabel('X (kpc)', fontsize=15)
-    ax1.set_ylabel('Y (kpc)', fontsize=15)
-    ax1.set_zlabel('Z (kpc)', fontsize=15)
-    ax1.set_title('3D Galactocentric Orbit', fontsize = 15)
-    ax1.legend(loc = 'upper right', fontsize = 15)
-
-    # xy-plane projection
     ax2 = fig.add_subplot(122)
-    ax2.plot(positions[:, 0], positions[:, 1], color = rand_color, linewidth = 1.5, alpha = 0.7, label = 'Stellar Orbit')
+
+    ax1.scatter(0, 0, 0, color = 'orangered', s = 100, label='MW Center', zorder = 1)
     ax2.scatter(x = 0, y = 0, color = 'orangered', s = 100, label = 'MW Center')
-    #ax2.scatter(positions[0, 0], positions[0, 1], color='green', s=80, label='Start')
-    ax2.set_xlabel('X (kpc)', fontsize = 15)
-    ax2.set_ylabel('Y (kpc)', fontsize = 15)
-    ax2.set_title('Orbit in XY-Plane', fontsize = 15)
-    ax2.axis('equal')
-    ax2.legend(loc = 'upper right', fontsize = 15)
+    
+    for i in range(len(ra)):
+
+        print(f"Star {i + 1} Info:\n")
+    
+        print("="*60) #Print functions suggested by Claude.ai for debugging purposes
+        print("CONVERTING TO GALACTOCENTRIC COORDINATES")
+        print("="*60)
+        print(f"Input observational data:")
+        print(f"  RA: {ra[i]:.6f} deg")
+        print(f"  Dec: {dec[i]:.6f} deg")
+        print(f"  Distance from Earth: {dist[i]:.6f} kpc")
+        print(f"  PM_RA*cos(dec): {pm_ra[i]:.6f} mas/yr")
+        print(f"  PM_Dec: {pm_dec[i]:.6f} mas/yr")
+        print(f"  Radial velocity: {rv[i]:.6f} km/s\n")
+    
+        #Convert to Galactocentric coordinates
+        r_0, v_0 = galactic_coords(ra[i], dec[i], dist[i], pm_ra[i], pm_dec[i], rv[i])
+    
+        #Simulate the orbit
+        print("="*60)
+        print("SIMULATING ORBIT")
+        print("="*60)
+    
+        times, positions, velocities = simulate_galactic_orbit(r_0, v_0, dt, t_max)
+    
+        #Determine orbital statistics
+        r_vals = np.sqrt(np.sum(np.square(positions), axis = 1))
+    
+        print("="*60)
+        print("ORBITAL STATISTICS")
+        print("="*60)
+        print(f"Initial distance: {r_vals[0]:.3f} kpc")
+        print(f"Min distance (periapsis): {r_vals.min():.3f} kpc")
+        print(f"Max distance (apoapsis): {r_vals.max():.3f} kpc")
+        print(f"Final distance: {r_vals[-1]:.3f} kpc")
+        print(f"Eccentricity (approx): {(r_vals.max() - r_vals.min())/(r_vals.max() + r_vals.min()):.3f}\n")
+    
+        #Creating 3D plots
+    
+        rand_color = generate_random_rgb_color()
+    
+        # 3D orbit
+        ax1.plot(positions[:, 0], positions[:, 1], positions[:, 2], 
+                color = rand_color, linewidth = 1.5, alpha = 0.7, label = f'Star {i + 1} Orbit', zorder = 3)
+        #ax1.scatter(positions[0, 0], positions[0, 1], positions[0, 2], 
+                    #color='green', s=80, label='Start')
+        ax1.set_xlabel('X (kpc)', fontsize=15)
+        ax1.set_ylabel('Y (kpc)', fontsize=15)
+        ax1.set_zlabel('Z (kpc)', fontsize=15)
+        ax1.set_title('3D Galactocentric Orbit', fontsize = 15)
+        ax1.legend(loc = 'upper right', fontsize = 15)
+    
+        # xy-plane projection
+        ax2.plot(positions[:, 0], positions[:, 1], color = rand_color, linewidth = 1.5, alpha = 0.7, label = f'Star {i + 1} Orbit')
+        #ax2.scatter(positions[0, 0], positions[0, 1], color='green', s=80, label='Start')
+        ax2.set_xlabel('X (kpc)', fontsize = 15)
+        ax2.set_ylabel('Y (kpc)', fontsize = 15)
+        ax2.set_title('Orbit in XY-Plane', fontsize = 15)
+        ax2.axis('equal')
+        ax2.legend(loc = 'upper right', fontsize = 15)
 
     plt.tight_layout()
     plt.show()
 
-if __name__ == '__main__': #Next task, create animation and load in Gaia/SDSS files
+## Making an animation ##
+
+def animate_galactic_orbit(ra, dec, dist, pm_ra, pm_dec, rv, dt = 0.1, t_max = 1000, disk_radius = 15.0, disk_height = 0.3,
+                          speed = 10, trail_length = 500, save_animation = False, gif_name = 'Nrich_stellar_orbits.gif'):
+
+    # Store all star data
+    all_positions = []
+    all_velocities = []
+    all_colors = []
+
+    for i in range(len(ra)):
+        print(f"\nProcessing Star {i + 1}...")
+        print("="*60)
+        
+        # Convert to Galactocentric coordinates
+        r_0, v_0 = galactic_coords(ra[i], dec[i], dist[i], pm_ra[i], pm_dec[i], rv[i])
+        
+        # Simulate the orbit
+        times, positions, velocities = simulate_galactic_orbit(r_0, v_0, dt, t_max)
+        
+        all_positions.append(positions)
+        all_velocities.append(velocities)
+        all_colors.append((random.random(), random.random(), random.random()))
+
+    #Plotting all the orbits on one plot
+    fig = plt.figure(figsize = (14, 6))
+    ax1 = fig.add_subplot(121, projection='3d')
+    ax2 = fig.add_subplot(122)
+
+    #Plotting the Milky Way's disk
+    # 2D disk (circle) for xy-plane plot
+    theta = np.linspace(0, 2 * np.pi, 100)
+    disk_x = disk_radius * np.cos(theta)
+    disk_y = disk_radius * np.sin(theta)
+    ax2.plot(disk_x, disk_y, color = 'lightgray', linestyle = '--', linewidth = 2, 
+            alpha = 0.5, label = 'MW Disk Edge', zorder = 1)
+    ax2.fill(disk_x, disk_y, color = 'lightgray', alpha = 0.2, zorder = 0)
+    
+    # 3D disk for xyz-plane plot
+    theta_cyl = np.linspace(0, 2 * np.pi, 50)
+    z_cyl = np.linspace(-disk_height, disk_height, 2)
+    Theta_cyl, Z_cyl = np.meshgrid(theta_cyl, z_cyl)
+    X_cyl = disk_radius * np.cos(Theta_cyl)
+    Y_cyl = disk_radius * np.sin(Theta_cyl)
+        
+    # Plotting 3D cylinder surface
+    ax1.plot_surface(X_cyl, Y_cyl, Z_cyl, color = 'lightgray', alpha = 0.2, zorder = 0)
+        
+    # Plot cylinder edges
+    circle_x = disk_radius * np.cos(theta)
+    circle_y = disk_radius * np.sin(theta)
+    ax1.plot(circle_x, circle_y, disk_height, color = 'gray', linestyle = '--', 
+            linewidth = 1.5, alpha = 0.5, zorder = 1)
+    ax1.plot(circle_x, circle_y, -disk_height, color = 'gray', linestyle = '--', 
+            linewidth = 1.5, alpha = 0.5, zorder = 1)
+
+    #Plotting the Milky Way center
+    ax1.scatter(0, 0, 0, color = 'black', s = 100, zorder = 2, label='MW Center')
+    ax2.scatter(x = 0, y = 0, color = 'black', s = 100, zorder = 2, label = 'MW Center')
+
+    # Plot full static orbits first
+    for i in range(len(ra)):
+        # Plot complete orbit path (static, faded)
+        ax1.plot(all_positions[i][:, 0], all_positions[i][:, 1], all_positions[i][:, 2],
+                color = all_colors[i], linewidth = 1, alpha = 0.3, linestyle = '--',
+                zorder = 1, label = f'Star {i+1} Full Orbit')
+        ax2.plot(all_positions[i][:, 0], all_positions[i][:, 1],
+                color = all_colors[i], linewidth = 1, alpha = 0.3, linestyle = '--',
+                zorder = 1, label = f'Star {i+1} Full Orbit')
+
+    # Initialize plot elements for each star
+    points_3d = []
+    trails_3d = []
+    
+    points_2d = []
+    trails_2d = []
+
+    for i in range(len(ra)):
+        
+        # 3D elements
+        point_3d, = ax1.plot([], [], [], marker = '*', color = all_colors[i], 
+                            markersize = 12, zorder = 4, markeredgecolor = 'black', 
+                            markeredgewidth = 0.5, label = f'Star {i+1}')
+        trail_3d, = ax1.plot([], [], [], linestyle = '-', color = all_colors[i], 
+                            linewidth = 2, alpha = 0.6, zorder = 3)
+        points_3d.append(point_3d)
+        trails_3d.append(trail_3d)
+        
+        # 2D elements
+        point_2d, = ax2.plot([], [], marker = '*', color = all_colors[i], 
+                            markersize = 12, zorder = 4, markeredgecolor = 'black',
+                            markeredgewidth = 0.5, label = f'Star {i+1}')
+        trail_2d, = ax2.plot([], [], linestyle = '-', color = all_colors[i], 
+                            linewidth = 2, alpha = 0.6, zorder = 3)
+        points_2d.append(point_2d)
+        trails_2d.append(trail_2d)
+
+        # Time text (suggested by Claude.ai)
+        time_text_3d = ax1.text2D(0.02, 0.95, '', transform = ax1.transAxes, 
+                              fontsize = 12, fontweight = 'bold',
+                              bbox=dict(boxstyle = 'round', facecolor = 'wheat', alpha = 0.8))
+        time_text_2d = ax2.text(0.02, 0.98, '', transform = ax2.transAxes,
+                           fontsize = 12, fontweight = 'bold', verticalalignment = 'top',
+                           bbox=dict(boxstyle = 'round', facecolor = 'wheat', alpha = 0.8))
+
+        
+        #Formatting axes
+        # 3D orbit
+        ax1.set_xlabel('X (kpc)', fontsize=15)
+        ax1.set_ylabel('Y (kpc)', fontsize=15)
+        ax1.set_zlabel('Z (kpc)', fontsize=15)
+        ax1.set_title('3D Galactocentric Orbit', fontsize = 15)
+        ax1.legend(loc = 'upper right', fontsize = 9)
+
+        max_range = disk_radius * 1.1
+        ax1.set_xlim([-max_range, max_range])
+        ax1.set_ylim([-max_range, max_range])
+        ax1.set_zlim([-max_range/2, max_range/2])
+    
+        # xy-plane projection
+        ax2.set_xlabel('X (kpc)', fontsize = 15)
+        ax2.set_ylabel('Y (kpc)', fontsize = 15)
+        ax2.set_title('Orbit in XY-Plane', fontsize = 15)
+        ax2.axis('equal')
+        ax2.legend(loc = 'upper right', fontsize = 9)
+
+        ax2.set_xlim([-max_range, max_range])
+        ax2.set_ylim([-max_range, max_range])
+
+
+    ## Claude.ai suggested to include the init() and animate() methods inside this function
+    def init(): #Need to debug once my Claude.ai session opens back up (3 pm)
+        """ Initialize animation """
+        
+        for i in range(len(ra)):
+                
+            #3D arrays
+            points_3d[i].set_data(np.array([]), np.array([]))
+            points_3d[i].set_3d_properties(np.array([]))
+            trails_3d[i].set_data(np.array([]), np.array([]))
+            trails_3d[i].set_3d_properties(np.array([]))
+    
+            #2D arrays
+            points_2d[i].set_data(np.array([]), np.array([]))
+            trails_2d[i].set_data(np.array([]), np.array([]))
+                
+        time_text_3d.set_text('')
+        time_text_2d.set_text('')
+    
+        return points_3d + trails_3d + points_2d + trails_2d +[time_text_3d, time_text_2d]
+
+    def animate(frame): #Created with Claude.ai
+        """Update animation for each frame"""
+    
+        idx = frame * speed
+        if idx >= len(all_positions[0]):
+            idx = len(all_positions[0]) - 1
+            
+        # Calculate time
+        current_time = idx * dt
+            
+        for i in range(len(ra)):
+            # Get current position
+            pos = np.array(all_positions[i][idx])
+                
+            # Get trail positions
+            trail_start = max(0, idx - trail_length)
+            trail_pos = all_positions[i][trail_start:idx+1]
+                
+            # Update 3D plot
+            points_3d[i].set_data(np.array([pos[0]]), np.array([pos[1]]))
+            points_3d[i].set_3d_properties(np.array([pos[2]]))
+                
+            if len(trail_pos) > 1:
+                trail_array = np.array(trail_pos) if isinstance(trail_pos, list) else trail_pos
+                trails_3d[i].set_data(trail_array[:, 0], trail_array[:, 1])
+                trails_3d[i].set_3d_properties(trail_array[:, 2])
+                
+            # Update 2D plot
+            points_2d[i].set_data(np.array([pos[0]]), np.array([pos[1]]))
+                
+            if len(trail_pos) > 1:
+                trail_array = np.array(trail_pos) if isinstance(trail_pos, list) else trail_pos
+                trails_2d[i].set_data(trail_array[:, 0], trail_array[:, 1])
+            
+        # Update time display
+        time_text_3d.set_text(f'Time: {current_time:.1f} Myr')
+        time_text_2d.set_text(f'Time: {current_time:.1f} Myr')
+            
+        return points_3d + trails_3d + points_2d + trails_2d + [time_text_3d, time_text_2d]
+    
+
+    #Calculate number of frames
+    n_frames = len(all_positions[0]) // speed #Total number of frames must be an integer value
+    
+    # Create animation
+    print(f"\nCreating animation with {n_frames} frames...")
+    
+    anim = FuncAnimation(fig, animate, init_func = init, frames = n_frames,
+                        interval = 50, blit = True, repeat = True)    
+
+    # Save animation if requested
+    if save_animation == True: #This method isn't working right now
+        print(f"Saving animation to {filename}...")
+        anim.save(filename, writer = 'pillow', fps = 10, dpi = 100)
+        print("Animation saved!")
+
+    plt.tight_layout()
+    plt.show()
+
+    return anim
+
+if __name__ == '__main__': #Next task, load in Gaia/SDSS files
     # Stellar parameters
     ra = [39.364098]
     dec = [5.292768]
@@ -466,4 +693,4 @@ if __name__ == '__main__': #Next task, create animation and load in Gaia/SDSS fi
     pm_dec = [-5.955241]
     rv = [-21.060333]
     
-   plot_galactic_orbit(ra, dec, dist, pm_ra, pm_dec, rv)
+    animate_galactic_orbit(ra, dec, dist, pm_ra, pm_dec, rv)
