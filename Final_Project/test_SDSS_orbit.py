@@ -611,7 +611,7 @@ def animate_galactic_orbit(ra, dec, dist, pm_ra, pm_dec, rv, dt, t_max, speed, s
     # Save animation if requested
     if save_animation == True:
         print(f"Saving animation to {gif_name}...")
-        anim.save(gif_name, writer = 'pillow', fps = 10, dpi = 100)
+        anim.save(gif_name, writer = 'pillow', fps = 20, dpi = 100)
         print("Animation saved!")
 
     plt.tight_layout()
