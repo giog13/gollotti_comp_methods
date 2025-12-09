@@ -12,6 +12,52 @@ import astropy.constants as const
 import matplotlib.animation as animation
 from matplotlib.animation import FuncAnimation
 
+#Reading crossmatched Gaia/SDSS file and isolating the Nitrogen-rich stars
+def reading_file(): #Need to write commentary
+
+    filename = 'ASPCAP_Gaia_00311_Crossmatch.csv'
+
+    df = pd.read_csv(filename)
+
+    df_cross_gaia = df[['sdss_id', 'gaia_dr3_source_id', 'healpix', 'catalogid31', 'ra_1', 'dec_1', 'teff', 'logg', 'bp_rp', 'fe_h', 'n_h',
+                    'o_h','parallax', 'l_2', 'b_2', 'pm', 'pmra_2', 'pmdec', 'dr2_radial_velocity']]
+
+    #Deleting rows with np.nan values
+    df_cross_gaia = df_cross_gaia.dropna()
+    df_cross_gaia = df_cross_gaia.reset_index(drop=True) #Resetting index values
+    
+    #Deleting rows where the Gaia DR3 ID == -1
+    gaia_id = np.array(df_cross_gaia['gaia_dr3_source_id'])
+    bad_gaia = gaia_id == -1
+    df_cross_gaia = df_cross_gaia[~bad_gaia]
+    
+    df_cross_gaia = df_cross_gaia.reset_index(drop=True)
+
+    #Isolating stars with reliable temperatures
+    teff = np.array(df_cross_gaia['teff'])
+    teff_mask = teff > 4500
+    
+    df_cross_gaia = df_cross_gaia[teff_mask]
+    df_cross_gaia = df_cross_gaia.reset_index(drop=True)
+
+    #Calculating nitrogen abundances
+    n_abundances = []
+    
+    for i in range(len(df_cross_gaia['n_h'])):
+        n_fe_val = df_cross_gaia['n_h'][i] - df_cross_gaia['fe_h'][i]
+        n_abundances.append(n_fe_val)
+    
+    n_fe_vals = np.array(n_abundances)
+
+    #Isolating nitrogen-rich stars
+    n_abund_mask = n_fe_vals >= 0.5
+    
+    df_cross_gaia = df_cross_gaia[n_abund_mask]
+    df_cross_gaia = df_cross_gaia.reset_index(drop=True)
+
+    return df_cross_gaia
+    
+
 #Plummer potential model (works for GCs and dwarf galaxies, NOT spirals)
 def plummer_potential(r, b = 15.0, M = 1.29e12):  #Claude.ai suggests to use 15 kpc instead
     """
@@ -130,146 +176,8 @@ def leapfrog_method(pos, vel, dt):
     
     return new_pos, new_vel
 
-
-#Simulating the orbit
-def simulate_orbit(r_0, v_rad, pm, parallax, dt, t_max):
-    """
-        This function simulates the orbit of a star around the Milky Way through integrating with the leapfrog method. The number of time
-        step (n_steps) is dependent on the given time step (dt) and maximum simulation time (t_max). Every time I iterate the leapfrog
-        method, the new times, positions, and velocities will be added to a np.array (times, positions, velocities), which are all
-        unitless. This function will return the time, position, and velocity arrays, so they can be easily plotted or animated.
-
-        Parameters:
-            r_0 (float) = Initial radial distance away from the center of the Milky Way (kpc)
-            v_rad (float) = Velocity in the radial direction (km/s - convert to kpc/Myr)
-            pm (float) = Velocity in the tangential direction, which is represented by proper motion (mas/yr - convert to kpc/Myr)
-            parallax (float) = Stellar parallax when observed from Earth (microarcsec)
-            dt (float) = Time step (Myr)
-            t_max (float) = Total simulation time (Myr)
-            
-        Returns:
-            times (np.array) = Array of time steps (Myr)
-            positions (np.array) = Array of positions with coordinates [x, y, z] (kpc)
-            velocities (np.array) = Array of velocities [v_x, v_y, v_z] (kpc/Myr)
-    """
-    # Calculate the total number of steps
-    n_steps = int(t_max / dt)
-    
-    # Initialize arrays
-    times = np.zeros(n_steps + 1)
-    positions = np.zeros((n_steps + 1, 3))  # [x, y, z] in kpc
-    velocities = np.zeros((n_steps + 1, 3))  # [v_x, v_y, v_z] in kpc/Myr
-    
-    # Set initial conditions
-    positions[0] = np.array([r_0, 0.0, 0.0])
-
-    #Converting proper motion units to kpc/Myr
-    proper_motion = pm * (u.mas/u.yr)
-    p = (parallax * u.mas) #Giving units of milliarcsec to parallax
-    distance = p.to(u.kpc, equivalencies = u.parallax())
-    v_tan = (proper_motion * distance).to(u.kpc/u.Myr, equivalencies = u.dimensionless_angles())
-    print(f"Tangential velocity: {v_tan:.4e}")
-
-    #Converting radial velocity back to kpc/Myr
-    v_r = (v_rad * (u.km/u.s)).to(u.kpc/u.Myr)
-
-    #Adding velocities to an array
-    velocities[0] = np.array([v_r.value, v_tan.value, 0.0]) #[x = radial velocity, y = tangential velocity (proper motion)]
-
-    #Print statements for debugging
-    print(f"Initial position: {positions[0]} kpc")
-    print(f"Initial velocity: {velocities[0]} kpc/Myr")
-    print(f"Radial velocity: {v_r:.4f} kpc/Myr")
-    print(f"Proper motion: {v_tan:.4f} kpc/Myr\n")
-    
-    # Convert dt from Myr to seconds for leapfrog
-    dt_sec = (dt * u.Myr).to(u.s).value
-    
-    # Integration loop
-    for i in range(n_steps):
-        times[i + 1] = times[i] + dt
-        
-        # Get velocity in m/s for leapfrog
-        vel_ms = (velocities[i] * (u.kpc/u.Myr)).to(u.m/u.s).value
-        
-        # Perform leapfrog step
-        new_pos, new_vel = leapfrog_method(positions[i], vel_ms, dt_sec)
-        
-        # Store new values
-        positions[i + 1] = new_pos
-        velocities[i + 1] = (new_vel * (u.m/u.s)).to(u.kpc/u.Myr).value
-    
-    return times, positions, velocities
-
-def generate_random_rgb_color():
-    """Generates a random RGB color tuple."""
-    return (random.random(), random.random(), random.random())
-
-def plot_simulation(r0, v_rad, v_tan, p, dt = 0.1, t_max = 500):
-
-    """
-        This function simulates the orbit of a star around the Milky Way through integrating with the leapfrog method. The number of time
-        step (n_steps) is dependent on the given time step (dt) and maximum simulation time (t_max). Every time I iterate the leapfrog
-        method, the new times, positions, and velocities will be added to a np.array (times, positions, velocities), which are all
-        unitless. This function will return the time, position, and velocity arrays, so they can be easily plotted or animated.
-
-        Parameters:
-            r0 (list) = List of initial radial distances for all the stars in the list (kpc)
-            v_rad (list) = List of  radial velocity components (km/s) - will be converted to kpc/Myr
-            v_tan (list) = List of  tangential velocity components, representing the proper motion (mas/yr) - will be converted to kpc/Myr
-            parallax (list) = List of parallaxes for each star (milliarcsec)
-            dt (float) = Time step (Myr)
-            t_max (float) = Total simulation time (Myr)
-
-        Variables:
-            n_steps (int) = Number of time steps for the simulation (unitless)
-            times (np.array) = Array of time steps (Myr)
-            positions (np.array) = Array of positions with coordinates [x, y, z] (kpc)
-                                   Currently I only care about the radial component, so x will be the only non-zero value
-            velocities (np.array) = Array of velocities [v_x, v_y, v_z] (kpc/Myr)
-                                    Currently I only care about the radial velocity component, so v_x will be the only non-zero value
-            
-        Returns:
-            Plot with all the circular stellar orbits around the center of the Milky Way
-        """
-
-    fig = plt.figure(figsize = (8, 6))
-
-    # Orbital trajectory in the xy-plane
-    plt.title('Orbital trajectory in xy-plane', fontsize = 15)
-    plt.xlabel('x (kpc)', fontsize = 15)
-    plt.ylabel('y (kpc)', fontsize = 15)
-
-    plt.scatter(0, 0, color = 'orangered', s = 100, label = 'MW Center')
-    
-    for i in range(len(r0)):
-    
-        times, positions, velocities = simulate_orbit(r0[i], v_rad[i], v_tan[i], p[i], dt, t_max)
-
-        rand_color = generate_random_rgb_color()
-    
-        plt.plot(positions[:, 0], positions[:, 1], color = rand_color, linewidth=1.5) #Orbital model
-        #plt.plot(positions[0, 0], positions[0, 1], marker = '*', color = 'gold', size = 30) #Start position
-
-        # Print some diagnostics
-        r_values = np.sqrt(np.sum(np.square(positions), axis=1))
-        print(f"Info about Star {i + 1}\n")
-        print(f"Initial distance: {r_values[0]:.3f} kpc")
-        print(f"Initial radial velocity: {v_rad[0]} kpc/Myr")
-        print(f"Initial tangential velocity: {v_tan[0]} kpc/Myr")
-        print(f"Min distance: {r_values.min():.3f} kpc")
-        print(f"Max distance: {r_values.max():.3f} kpc\n")
-    
-    plt.legend(loc = 'upper right', fontsize = 12)
-    plt.grid(alpha=0.3)
-    plt.axis('equal')
-    
-    plt.tight_layout()
-    plt.show()
-
-
 #Converting to Galactocentric coordinates
-def galactic_coords(ra, dec, dist, pm_ra, pm_dec, rv): #Suggested by Claude.ai
+def galactic_coords(ra, dec, dist, pm_ra, pm_dec, rv): #Suggested by Claude.ai - Need to write more detailed commentary
     """
         This function converts observation coordinates to Galactocentric coordinates, so I can simulate stellar orbits in 3 dimensions.
 
@@ -317,7 +225,7 @@ def galactic_coords(ra, dec, dist, pm_ra, pm_dec, rv): #Suggested by Claude.ai
 
     return position, velocity
 
-def simulate_galactic_orbit(r_0, v_0, dt, t_max):
+def simulate_galactic_orbit(r_0, v_0, dt, t_max): #Need to write more detailed commentary
 
     """
         This function simulates a stellar orbit in Galactocentric coordinates instead of observational coordinates.
@@ -381,99 +289,9 @@ def simulate_galactic_orbit(r_0, v_0, dt, t_max):
     
     return times, positions, velocities
 
-def plot_galactic_orbit(ra, dec, dist, pm_ra, pm_dec, rv, dt = 0.1, t_max = 1000, disk_radius = 15.0, disk_height = 0.3):
-
-    """
-        This function converts observational coordinates to Galactocentric and also plots the orbits in both 2D and 3D.
-
-        Parameters:
-            ra (list) = List of RAs (degrees)
-            dec (list) = List of declinations (degrees)
-            dist (list) = List of stellar distances from Earth (kpc)
-            pm_ra (list) = List of proper motions in RA direction (mas/yr)
-            pm_dec (list) = List of proper motions in Dec direction (mas/yr)
-            rv (list) = List of radial velocities (km/s)
-            dt (float) = Time step (Myr)
-            t_max (float) = Total simulation time (Myr)
-            disk_radius (float) = Radius of the Milky Way that contains most of the stellar population (kpc)
-            disk_height (float) = Height of the Milky Way's thin disk (kpc)
-        
-    """
-
-    #Plotting all the orbits on one plot
-    fig = plt.figure(figsize = (14, 6))
-    ax1 = fig.add_subplot(121, projection='3d')
-    ax2 = fig.add_subplot(122)
-
-    ax1.scatter(0, 0, 0, color = 'orangered', s = 100, label='MW Center', zorder = 1)
-    ax2.scatter(x = 0, y = 0, color = 'orangered', s = 100, label = 'MW Center')
-    
-    for i in range(len(ra)):
-
-        print(f"Star {i + 1} Info:\n")
-    
-        print("="*60) #Print functions suggested by Claude.ai for debugging purposes
-        print("CONVERTING TO GALACTOCENTRIC COORDINATES")
-        print("="*60)
-        print(f"Input observational data:")
-        print(f"  RA: {ra[i]:.6f} deg")
-        print(f"  Dec: {dec[i]:.6f} deg")
-        print(f"  Distance from Earth: {dist[i]:.6f} kpc")
-        print(f"  PM_RA*cos(dec): {pm_ra[i]:.6f} mas/yr")
-        print(f"  PM_Dec: {pm_dec[i]:.6f} mas/yr")
-        print(f"  Radial velocity: {rv[i]:.6f} km/s\n")
-    
-        #Convert to Galactocentric coordinates
-        r_0, v_0 = galactic_coords(ra[i], dec[i], dist[i], pm_ra[i], pm_dec[i], rv[i])
-    
-        #Simulate the orbit
-        print("="*60)
-        print("SIMULATING ORBIT")
-        print("="*60)
-    
-        times, positions, velocities = simulate_galactic_orbit(r_0, v_0, dt, t_max)
-    
-        #Determine orbital statistics
-        r_vals = np.sqrt(np.sum(np.square(positions), axis = 1))
-    
-        print("="*60)
-        print("ORBITAL STATISTICS")
-        print("="*60)
-        print(f"Initial distance: {r_vals[0]:.3f} kpc")
-        print(f"Min distance (periapsis): {r_vals.min():.3f} kpc")
-        print(f"Max distance (apoapsis): {r_vals.max():.3f} kpc")
-        print(f"Final distance: {r_vals[-1]:.3f} kpc")
-        print(f"Eccentricity (approx): {(r_vals.max() - r_vals.min())/(r_vals.max() + r_vals.min()):.3f}\n")
-    
-        #Creating 3D plots
-    
-        rand_color = generate_random_rgb_color()
-    
-        # 3D orbit
-        ax1.plot(positions[:, 0], positions[:, 1], positions[:, 2], 
-                color = rand_color, linewidth = 1.5, alpha = 0.7, label = f'Star {i + 1} Orbit', zorder = 3)
-        #ax1.scatter(positions[0, 0], positions[0, 1], positions[0, 2], 
-                    #color='green', s=80, label='Start')
-        ax1.set_xlabel('X (kpc)', fontsize=15)
-        ax1.set_ylabel('Y (kpc)', fontsize=15)
-        ax1.set_zlabel('Z (kpc)', fontsize=15)
-        ax1.set_title('3D Galactocentric Orbit', fontsize = 15)
-        ax1.legend(loc = 'upper right', fontsize = 15)
-    
-        # xy-plane projection
-        ax2.plot(positions[:, 0], positions[:, 1], color = rand_color, linewidth = 1.5, alpha = 0.7, label = f'Star {i + 1} Orbit')
-        #ax2.scatter(positions[0, 0], positions[0, 1], color='green', s=80, label='Start')
-        ax2.set_xlabel('X (kpc)', fontsize = 15)
-        ax2.set_ylabel('Y (kpc)', fontsize = 15)
-        ax2.set_title('Orbit in XY-Plane', fontsize = 15)
-        ax2.axis('equal')
-        ax2.legend(loc = 'upper right', fontsize = 15)
-
-    plt.tight_layout()
-    plt.show()
-
 ## Making an animation ##
 
+#Need to write commentary
 def animate_galactic_orbit(ra, dec, dist, pm_ra, pm_dec, rv, dt = 0.1, t_max = 1000, disk_radius = 15.0, disk_height = 0.3,
                           speed = 10, trail_length = 500, save_animation = False, gif_name = 'Nrich_stellar_orbits.gif'):
 
@@ -603,7 +421,7 @@ def animate_galactic_orbit(ra, dec, dist, pm_ra, pm_dec, rv, dt = 0.1, t_max = 1
 
 
     ## Claude.ai suggested to include the init() and animate() methods inside this function
-    def init(): #Need to debug once my Claude.ai session opens back up (3 pm)
+    def init(): #Need to write commentary
         """ Initialize animation """
         
         for i in range(len(ra)):
@@ -623,7 +441,7 @@ def animate_galactic_orbit(ra, dec, dist, pm_ra, pm_dec, rv, dt = 0.1, t_max = 1
     
         return points_3d + trails_3d + points_2d + trails_2d +[time_text_3d, time_text_2d]
 
-    def animate(frame): #Created with Claude.ai
+    def animate(frame): #Created with Claude.ai - need to write commentary
         """Update animation for each frame"""
     
         idx = frame * speed
@@ -685,12 +503,39 @@ def animate_galactic_orbit(ra, dec, dist, pm_ra, pm_dec, rv, dt = 0.1, t_max = 1
     return anim
 
 if __name__ == '__main__': #Next task, load in Gaia/SDSS files
+
+    #Write argparse arguments
+
+    #Obtaining dataframe of the Gaia/SDSS file
+    df_cross_gaia = reading_file()
+
+    #Write a random number generator, so it picks random indices based on the number of stars the user wants to simulate
+    
     # Stellar parameters
-    ra = [39.364098]
-    dec = [5.292768]
-    dist = [0.660446]
-    pm_ra = [-8.348716]
-    pm_dec = [-5.955241]
-    rv = [-21.060333]
+
+    #Initializing arrays
+    ra = []
+    dec = []
+    dist = []
+    pm_ra = []
+    pm_dec = []
+    rv = []
+    random_star = [] #Array of random indices generated by random number generator
+
+    #Appending  values to the arrays based on the number of stars the user wants to plot
+
+    #for i in range(arg.stellar_number):
+        #random_index = random.randint(0, len(df_cross_gaia))
+        #random_star.append(random_index)
+
+        #Make sure random index wasn't already picked for a previous star  (need to write a while statement)    
+
+        #Appending values to arrays
+        #ra.append(df_cross_gaia['ra_1'][random_index])
+        #dec.append(df_cross_gaia['dec_1'][random_index])
+        #dist.append(df_cross_gaia['dist_from_Earth(kpc)'][random_index])
+        #pm_ra.append(df_cross_gaia['pmra_2'][random_index])
+        #pm_dec.append(df_cross_gaia['pmdec'][random_index])
+        #rv.append(df_cross_gaia['dr2_radial_velocity'][random_index])
     
     animate_galactic_orbit(ra, dec, dist, pm_ra, pm_dec, rv)
